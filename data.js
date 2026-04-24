@@ -1,5 +1,5 @@
 window.__BOOK_DATA__ = {
-  "title": "Muallim Soniy",
+  "title": "Learn Arabic",
   "source": "www.arabic.uz, 2009",
   "description": "Arabic reading primer in Uzbek. Each lesson introduces Arabic letters and practice words with diacritical marks.",
   "note": "Lessons are separated by ٭٭٭ dividers in the original. Words are given with full vowel markings (harakat). The book covers madsiz (short vowel) words in lessons 1-12, then madli (long vowel) words from lesson 13 onward.",
@@ -893,7 +893,7 @@ window.__BOOK_DATA__ = {
         "يَنْقَلِبُ"
       ],
       "latin_reading": [
-        "qa",
+        "qo",
         "qi",
         "qu",
         "zuq",
@@ -902,10 +902,10 @@ window.__BOOK_DATA__ = {
         "qum",
         "qif",
         "qih",
-        "qalbu",
-        "qablu",
+        "qolbu",
+        "qoblu",
         "fawqu",
-        "qalamu",
+        "qolamu",
         "laqab",
         "qumqum",
         "iqtaraba",

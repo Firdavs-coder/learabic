@@ -413,10 +413,6 @@ function renderSectionCards(cards) {
         cardClasses.push("word-card--full");
       }
 
-      if (!card.clickable) {
-        cardClasses.push("word-card--static");
-      }
-
       const arabicHtml = card.arabic ? `<div class="arabic">${escapeHtml(card.arabic)}</div>` : "";
       const latinHtml = `<div class="latin">${showLatin.checked && card.latin ? escapeHtml(card.latin) : ""}</div>`;
       const meaningHtml = card.meaning ? `<div class="meaning">${escapeHtml(card.meaning)}</div>` : "";
@@ -426,7 +422,7 @@ function renderSectionCards(cards) {
         <article
           class="${cardClasses.join(" ")}"
           data-card-index="${index}"
-          ${card.clickable ? 'tabindex="0" role="button" aria-label="Open details"' : 'role="group"'}
+          tabindex="0" role="button" aria-label="Open details"
         >
           ${arabicHtml}
           ${latinHtml}
@@ -674,6 +670,15 @@ async function init() {
   }
 
   document.title = bookData.title;
+  
+  const savedLesson = localStorage.getItem("currentLesson");
+  if (savedLesson !== null) {
+    const parsed = Number(savedLesson);
+    if (!isNaN(parsed) && parsed >= 0 && parsed < lessons.length) {
+      currentLesson = parsed;
+    }
+  }
+
   populateLessons();
   renderLesson(currentLesson);
 }
@@ -711,6 +716,7 @@ lessonSelectMenu.addEventListener("click", (e) => {
   }
 
   currentLesson = Number(optionBtn.dataset.lessonIndex);
+  localStorage.setItem("currentLesson", currentLesson);
   populateLessons();
   renderLesson(currentLesson);
   toggleSelect(false);
@@ -728,6 +734,7 @@ prevBtn.addEventListener("click", () => {
   }
 
   currentLesson = (currentLesson - 1 + lessons.length) % lessons.length;
+  localStorage.setItem("currentLesson", currentLesson);
   populateLessons();
   renderLesson(currentLesson);
 });
@@ -738,6 +745,7 @@ nextBtn.addEventListener("click", () => {
   }
 
   currentLesson = (currentLesson + 1) % lessons.length;
+  localStorage.setItem("currentLesson", currentLesson);
   populateLessons();
   renderLesson(currentLesson);
 });
@@ -771,7 +779,7 @@ wordGrid.addEventListener("click", (e) => {
 
   const cardIndex = Number(card.dataset.cardIndex);
   const item = displayedItems[cardIndex];
-  if (item && item.clickable !== false) {
+  if (item) {
     openWordModal(item);
   }
 });
@@ -789,7 +797,7 @@ wordGrid.addEventListener("keydown", (e) => {
   e.preventDefault();
   const cardIndex = Number(card.dataset.cardIndex);
   const item = displayedItems[cardIndex];
-  if (item && item.clickable !== false) {
+  if (item) {
     openWordModal(item);
   }
 });
