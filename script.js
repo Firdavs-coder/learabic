@@ -12,6 +12,7 @@ const shuffleBtn = document.getElementById("shuffleBtn");
 const showLatin = document.getElementById("showLatin");
 const arabicSize = document.getElementById("arabicSize");
 const arabicSizeValue = document.getElementById("arabicSizeValue");
+const notesTooltip = document.getElementById("notesTooltip");
 
 const wordModal = document.getElementById("wordModal");
 const modalCloseBtn = document.getElementById("modalCloseBtn");
@@ -402,6 +403,30 @@ function buildLessonMeta(section, book) {
   `;
 }
 
+function buildNotesTooltipText(section, book) {
+  const notes = [
+    section?.note,
+    section?.note_uzbek,
+    section?.note_english,
+  ]
+    .filter(isNonEmpty)
+    .map((item) => String(item).trim());
+
+  if (notes.length === 0) {
+    return "No note fields for this lesson.";
+  }
+
+  return notes.join("\n\n");
+}
+
+function updateNotesTooltip(section) {
+  if (!notesTooltip) {
+    return;
+  }
+
+  notesTooltip.textContent = buildNotesTooltipText(section, bookData);
+}
+
 function renderSectionCards(cards) {
   displayedItems = cards;
 
@@ -589,6 +614,7 @@ function renderLesson(index, customWords = null) {
   if (!section) {
     wordGrid.innerHTML = "";
     lessonSelectValue.textContent = "Select lesson";
+    updateNotesTooltip(null);
     return;
   }
 
@@ -597,6 +623,7 @@ function renderLesson(index, customWords = null) {
   if (lessonInfo) {
     lessonInfo.innerHTML = buildLessonMeta(section, bookData);
   }
+  updateNotesTooltip(section);
   renderSectionCards(cards);
   updateSelectLabel(index);
 }
@@ -646,6 +673,7 @@ function setFallbackMessage(message) {
   }
   wordGrid.innerHTML = "";
   lessonSelectValue.textContent = message;
+  updateNotesTooltip(null);
 }
 
 async function init() {

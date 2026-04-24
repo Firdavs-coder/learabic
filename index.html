@@ -20,7 +20,13 @@
       <aside class="left-panel">
         <section class="controls">
           <div class="field-group">
-            <span class="field-label">Lesson</span>
+            <div class="field-label-row">
+              <span class="field-label">Lesson</span>
+              <button id="notesInfoBtn" class="info-icon-btn" type="button" aria-label="Lesson notes">
+                <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16v-5M12 8h.01M12 22C6.48 22 2 17.52 2 12S6.48 2 12 2s10 4.48 10 10-4.48 10-10 10z" /></svg>
+                <span id="notesTooltip" class="info-tooltip" role="tooltip">No notes available.</span>
+              </button>
+            </div>
             <div class="custom-select" id="lessonSelectCustom">
               <button id="lessonSelectBtn" class="select-trigger" type="button" aria-haspopup="listbox" aria-expanded="false">
                 <span id="lessonSelectValue">Select lesson</span>

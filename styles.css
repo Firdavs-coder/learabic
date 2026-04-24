@@ -122,10 +122,75 @@ body::after {
     gap: 6px;
 }
 
+.field-label-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+
 .field-label {
     font-size: 0.82rem;
     color: var(--muted);
     font-weight: 600;
+}
+
+.info-icon-btn {
+    position: relative;
+    width: 24px;
+    height: 24px;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    background: var(--panel-soft);
+    color: var(--muted);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    padding: 0;
+}
+
+.info-icon-btn .icon {
+    width: 14px;
+    height: 14px;
+}
+
+.info-icon-btn:hover,
+.info-icon-btn:focus-visible {
+    color: var(--text);
+    border-color: var(--btn-hover-border);
+    box-shadow: 0 0 0 2px var(--btn-hover-ring);
+    outline: none;
+}
+
+.info-tooltip {
+    position: absolute;
+    right: 0;
+    top: calc(100% + 8px);
+    width: min(360px, 75vw);
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    box-shadow: 0 12px 24px rgba(91, 64, 44, 0.16);
+    color: var(--muted);
+    font-size: 0.8rem;
+    line-height: 1.45;
+    text-align: left;
+    padding: 8px 10px;
+    white-space: pre-line;
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(-2px);
+    transition: opacity 0.18s ease, transform 0.18s ease, visibility 0.18s ease;
+    pointer-events: none;
+    z-index: 30;
+}
+
+.info-icon-btn:hover .info-tooltip,
+.info-icon-btn:focus-visible .info-tooltip {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0);
 }
 
 #arabicSizeValue {
