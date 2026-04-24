@@ -534,6 +534,7 @@ async function speakWithFallbackAudio(text) {
     return true;
   } catch (error) {
     console.warn("Fallback Arabic TTS failed", error);
+    console.error("Error details:", error.message);
     return false;
   }
 }
