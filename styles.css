@@ -150,6 +150,10 @@ body::after {
     padding: 0;
 }
 
+.info-icon-btn[hidden] {
+    display: none !important;
+}
+
 .info-icon-btn .icon {
     width: 14px;
     height: 14px;
@@ -592,6 +596,18 @@ body::after {
     font-size: 1.12rem;
     color: var(--success);
     font-weight: 600;
+}
+
+.modal-latin--blurred {
+    filter: blur(6px);
+    cursor: default;
+    user-select: none;
+    transition: filter 0.2s ease;
+}
+
+.modal-latin--blurred:hover,
+.modal-latin--blurred:focus-visible {
+    filter: blur(0);
 }
 
 .modal-meaning {

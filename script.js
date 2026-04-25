@@ -10,8 +10,10 @@ const prevBtn = document.getElementById("prevBtn");
 const nextBtn = document.getElementById("nextBtn");
 const shuffleBtn = document.getElementById("shuffleBtn");
 const showLatin = document.getElementById("showLatin");
+const showTranslation = document.getElementById("showTranslation");
 const arabicSize = document.getElementById("arabicSize");
 const arabicSizeValue = document.getElementById("arabicSizeValue");
+const notesInfoBtn = document.getElementById("notesInfoBtn");
 const notesTooltip = document.getElementById("notesTooltip");
 
 const wordModal = document.getElementById("wordModal");
@@ -25,8 +27,30 @@ let currentLesson = 0;
 let displayedItems = [];
 let arabicVoice = null;
 let fallbackAudio = null;
+let activeModalCard = null;
 
 const ARABIC_SIZE_DEFAULT = 32;
+const SHOW_LATIN_STORAGE_KEY = "showLatinEnabled";
+const SHOW_TRANSLATION_STORAGE_KEY = "showTranslationEnabled";
+
+function getStoredToggleState(key, fallback = true) {
+  const stored = localStorage.getItem(key);
+  if (stored === null) {
+    return fallback;
+  }
+
+  return stored === "true";
+}
+
+function initializeDisplayToggles() {
+  if (showLatin) {
+    showLatin.checked = getStoredToggleState(SHOW_LATIN_STORAGE_KEY, true);
+  }
+
+  if (showTranslation) {
+    showTranslation.checked = getStoredToggleState(SHOW_TRANSLATION_STORAGE_KEY, true);
+  }
+}
 
 function clampArabicSize(value) {
   if (!arabicSize) {
@@ -404,19 +428,8 @@ function buildLessonMeta(section, book) {
 }
 
 function buildNotesTooltipText(section, book) {
-  const notes = [
-    section?.note,
-    section?.note_uzbek,
-    section?.note_english,
-  ]
-    .filter(isNonEmpty)
-    .map((item) => String(item).trim());
-
-  if (notes.length === 0) {
-    return "No note fields for this lesson.";
-  }
-
-  return notes.join("\n\n");
+  const englishNote = section?.note_english;
+  return isNonEmpty(englishNote) ? String(englishNote).trim() : "";
 }
 
 function updateNotesTooltip(section) {
@@ -424,7 +437,12 @@ function updateNotesTooltip(section) {
     return;
   }
 
-  notesTooltip.textContent = buildNotesTooltipText(section, bookData);
+  const text = buildNotesTooltipText(section, bookData);
+  notesTooltip.textContent = text;
+
+  if (notesInfoBtn) {
+    notesInfoBtn.hidden = !isNonEmpty(text);
+  }
 }
 
 function renderSectionCards(cards) {
@@ -440,7 +458,8 @@ function renderSectionCards(cards) {
 
       const arabicHtml = card.arabic ? `<div class="arabic">${escapeHtml(card.arabic)}</div>` : "";
       const latinHtml = `<div class="latin">${showLatin.checked && card.latin ? escapeHtml(card.latin) : ""}</div>`;
-      const meaningHtml = card.meaning ? `<div class="meaning">${escapeHtml(card.meaning)}</div>` : "";
+      const shouldShowMeaning = !showTranslation || showTranslation.checked;
+      const meaningHtml = shouldShowMeaning && card.meaning ? `<div class="meaning">${escapeHtml(card.meaning)}</div>` : "";
       const extraHtml = card.extra ? `<div class="card-extra">${escapeHtml(card.extra)}</div>` : "";
 
       return `
@@ -457,6 +476,22 @@ function renderSectionCards(cards) {
       `;
     })
     .join("");
+}
+
+function updateModalCardText(card) {
+  if (!card) {
+    return;
+  }
+
+  const latinText = card.latin || "";
+  const shouldBlurLatin = Boolean(showLatin) && !showLatin.checked && isNonEmpty(latinText);
+
+  modalLatin.textContent = latinText;
+  modalLatin.classList.toggle("modal-latin--blurred", shouldBlurLatin);
+  modalLatin.tabIndex = shouldBlurLatin ? 0 : -1;
+
+  const shouldShowMeaning = !showTranslation || showTranslation.checked;
+  modalMeaning.textContent = shouldShowMeaning ? joinValues([card.meaning, card.extra], " · ") : "";
 }
 
 function shuffleArray(items) {
@@ -629,9 +664,9 @@ function renderLesson(index, customWords = null) {
 }
 
 function openWordModal(card) {
+  activeModalCard = card;
   modalArabic.textContent = card.arabic || card.caption || "";
-  modalLatin.textContent = showLatin.checked ? card.latin || "" : "";
-  modalMeaning.textContent = joinValues([card.meaning, card.extra], " · ");
+  updateModalCardText(card);
   updateSpeakButtonState(card.arabic || card.caption || "");
   wordModal.classList.add("show");
   wordModal.setAttribute("aria-hidden", "false");
@@ -639,6 +674,7 @@ function openWordModal(card) {
 
 function closeWordModal() {
   stopArabicPlayback();
+  activeModalCard = null;
   wordModal.classList.remove("show");
   wordModal.setAttribute("aria-hidden", "true");
 }
@@ -718,6 +754,8 @@ function toggleSelect(open = null) {
   lessonSelectBtn.setAttribute("aria-expanded", String(next));
 }
 
+initializeDisplayToggles();
+
 init();
 
 initializeArabicSizeSetting();
@@ -790,8 +828,18 @@ shuffleBtn.addEventListener("click", () => {
 });
 
 showLatin.addEventListener("change", () => {
+  localStorage.setItem(SHOW_LATIN_STORAGE_KEY, String(showLatin.checked));
   renderLesson(currentLesson);
+  updateModalCardText(activeModalCard);
 });
+
+if (showTranslation) {
+  showTranslation.addEventListener("change", () => {
+    localStorage.setItem(SHOW_TRANSLATION_STORAGE_KEY, String(showTranslation.checked));
+    renderLesson(currentLesson);
+    updateModalCardText(activeModalCard);
+  });
+}
 
 if (arabicSize) {
   arabicSize.addEventListener("input", () => {
