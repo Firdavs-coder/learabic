@@ -13,6 +13,7 @@ const showLatin = document.getElementById("showLatin");
 const showTranslation = document.getElementById("showTranslation");
 const arabicSize = document.getElementById("arabicSize");
 const arabicSizeValue = document.getElementById("arabicSizeValue");
+const ttsMode = document.getElementById("ttsMode");
 const notesInfoBtn = document.getElementById("notesInfoBtn");
 const notesTooltip = document.getElementById("notesTooltip");
 
@@ -30,6 +31,9 @@ let fallbackAudio = null;
 let activeModalCard = null;
 
 const ARABIC_SIZE_DEFAULT = 32;
+const TTS_MODE_STORAGE_KEY = "arabicTtsMode";
+const TTS_MODE_CLOUD = "cloud";
+const TTS_MODE_DEVICE = "device";
 const SHOW_LATIN_STORAGE_KEY = "showLatinEnabled";
 const SHOW_TRANSLATION_STORAGE_KEY = "showTranslationEnabled";
 
@@ -90,6 +94,15 @@ function initializeArabicSizeSetting() {
   const saved = localStorage.getItem("arabicSizePx");
   const selectedSize = applyArabicSize(saved || arabicSize.value || ARABIC_SIZE_DEFAULT);
   arabicSize.value = String(selectedSize);
+}
+
+function initializeTtsModeSetting() {
+  if (!ttsMode) {
+    return;
+  }
+
+  const storedMode = localStorage.getItem(TTS_MODE_STORAGE_KEY);
+  ttsMode.value = storedMode === TTS_MODE_DEVICE ? TTS_MODE_DEVICE : TTS_MODE_CLOUD;
 }
 
 function escapeHtml(value) {
@@ -510,6 +523,84 @@ function canSpeakArabic() {
   return typeof window !== "undefined" && "speechSynthesis" in window && typeof SpeechSynthesisUtterance !== "undefined";
 }
 
+function getSelectedTtsMode() {
+  if (!ttsMode) {
+    return TTS_MODE_CLOUD;
+  }
+
+  return ttsMode.value === TTS_MODE_DEVICE ? TTS_MODE_DEVICE : TTS_MODE_CLOUD;
+}
+
+function normalizeSpeechText(text) {
+  return String(text || "").replace(/\s+/g, " ").trim();
+}
+
+function buildGoogleTtsUrl(text) {
+  return `https://translate.googleapis.com/translate_tts?ie=UTF-8&client=gtx&tl=ar&q=${encodeURIComponent(text)}`;
+}
+
+function splitSpeechText(text, maxLength = 180) {
+  const phrase = normalizeSpeechText(text);
+
+  if (!phrase) {
+    return [];
+  }
+
+  if (phrase.length <= maxLength) {
+    return [phrase];
+  }
+
+  const words = phrase.split(/\s+/).filter(Boolean);
+  const chunks = [];
+  let currentChunk = "";
+
+  words.forEach((word) => {
+    const nextChunk = currentChunk ? `${currentChunk} ${word}` : word;
+
+    if (nextChunk.length > maxLength && currentChunk) {
+      chunks.push(currentChunk);
+      currentChunk = word;
+      return;
+    }
+
+    currentChunk = nextChunk;
+  });
+
+  if (currentChunk) {
+    chunks.push(currentChunk);
+  }
+
+  return chunks.length > 0 ? chunks : [phrase];
+}
+
+function voiceScore(voice) {
+  const lang = String(voice?.lang || "").toLowerCase();
+  const name = String(voice?.name || "").toLowerCase();
+  let score = 0;
+
+  if (lang.startsWith("ar")) {
+    score += 100;
+  }
+
+  if (/arab|العربية/.test(name)) {
+    score += 70;
+  }
+
+  if (/google/.test(name)) {
+    score += 20;
+  }
+
+  if (/microsoft|apple/.test(name)) {
+    score += 10;
+  }
+
+  if (voice?.default) {
+    score += 5;
+  }
+
+  return score;
+}
+
 function pickArabicVoice() {
   if (!canSpeakArabic()) {
     return null;
@@ -520,11 +611,17 @@ function pickArabicVoice() {
     return null;
   }
 
-  return (
-    voices.find((voice) => String(voice.lang || "").toLowerCase().startsWith("ar")) ||
-    voices.find((voice) => /arabic|العربية/i.test(String(voice.name || ""))) ||
-    null
-  );
+  const arabicVoices = voices.filter((voice) => {
+    const lang = String(voice.lang || "").toLowerCase();
+    const name = String(voice.name || "");
+    return lang.startsWith("ar") || /arabic|العربية/i.test(name);
+  });
+
+  if (arabicVoices.length === 0) {
+    return null;
+  }
+
+  return arabicVoices.sort((firstVoice, secondVoice) => voiceScore(secondVoice) - voiceScore(firstVoice))[0] || null;
 }
 
 function updateArabicVoice() {
@@ -551,12 +648,42 @@ function stopArabicPlayback() {
   }
 }
 
+function playAudioUrl(url) {
+  return new Promise((resolve, reject) => {
+    const audio = new Audio(url);
+    fallbackAudio = audio;
+
+    const cleanup = () => {
+      audio.removeEventListener("ended", handleEnded);
+      audio.removeEventListener("error", handleError);
+    };
+
+    const handleEnded = () => {
+      cleanup();
+      resolve(true);
+    };
+
+    const handleError = (event) => {
+      cleanup();
+      reject(event?.error || new Error("Failed to play Arabic audio"));
+    };
+
+    audio.addEventListener("ended", handleEnded, { once: true });
+    audio.addEventListener("error", handleError, { once: true });
+
+    audio.play().catch((error) => {
+      cleanup();
+      reject(error);
+    });
+  });
+}
+
 function speakWithWebSpeech(text) {
   if (!canSpeakArabic()) {
     return false;
   }
 
-  const phrase = String(text || "").trim();
+  const phrase = normalizeSpeechText(text);
   if (!phrase) {
     return false;
   }
@@ -581,43 +708,60 @@ function speakWithWebSpeech(text) {
 }
 
 async function speakWithFallbackAudio(text) {
-  const phrase = String(text || "").trim();
+  const phrase = normalizeSpeechText(text);
   if (!phrase) {
     return false;
   }
 
   try {
-    if (!fallbackAudio) {
-      fallbackAudio = new Audio();
+    const chunks = splitSpeechText(phrase);
+
+    if (chunks.length === 0) {
+      return false;
     }
 
-    fallbackAudio.src = `https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&tl=ar&q=${encodeURIComponent(phrase)}`;
-    fallbackAudio.currentTime = 0;
-    await fallbackAudio.play();
+    for (const chunk of chunks) {
+      if (!chunk) {
+        continue;
+      }
+
+      await playAudioUrl(buildGoogleTtsUrl(chunk));
+    }
+
     return true;
   } catch (error) {
     console.warn("Fallback Arabic TTS failed", error);
-    console.error("Error details:", error.message);
     return false;
   }
 }
 
 async function speakArabic(text) {
-  const phrase = String(text || "").trim();
+  const phrase = normalizeSpeechText(text);
   if (!phrase) {
     return;
   }
 
   stopArabicPlayback();
 
-  const selectedVoice = arabicVoice || pickArabicVoice();
-  if (selectedVoice && speakWithWebSpeech(phrase)) {
-    return;
-  }
+  const selectedMode = getSelectedTtsMode();
+  const canUseDeviceVoice = Boolean(arabicVoice || pickArabicVoice());
 
-  const fallbackPlayed = await speakWithFallbackAudio(phrase);
-  if (fallbackPlayed) {
-    return;
+  if (selectedMode === TTS_MODE_DEVICE) {
+    if (canUseDeviceVoice && speakWithWebSpeech(phrase)) {
+      return;
+    }
+
+    if (await speakWithFallbackAudio(phrase)) {
+      return;
+    }
+  } else {
+    if (await speakWithFallbackAudio(phrase)) {
+      return;
+    }
+
+    if (canUseDeviceVoice && speakWithWebSpeech(phrase)) {
+      return;
+    }
   }
 
   speakWithWebSpeech(phrase);
@@ -758,6 +902,7 @@ function toggleSelect(open = null) {
 }
 
 initializeDisplayToggles();
+initializeTtsModeSetting();
 
 init();
 
@@ -893,6 +1038,12 @@ modalCloseBtn.addEventListener("click", closeWordModal);
 if (modalSpeakBtn) {
   modalSpeakBtn.addEventListener("click", async () => {
     await speakArabic(modalArabic.textContent);
+  });
+}
+
+if (ttsMode) {
+  ttsMode.addEventListener("change", () => {
+    localStorage.setItem(TTS_MODE_STORAGE_KEY, ttsMode.value);
   });
 }
 
