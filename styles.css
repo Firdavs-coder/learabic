@@ -454,6 +454,17 @@ body::after {
     min-height: 1.2rem;
 }
 
+.latin--blurred {
+    filter: blur(5px);
+    user-select: none;
+    transition: filter 0.2s ease;
+}
+
+.latin--blurred:hover,
+.latin--blurred:focus-visible {
+    filter: blur(0);
+}
+
 .meaning {
     text-align: center;
     color: var(--muted);

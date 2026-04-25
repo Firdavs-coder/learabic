@@ -457,7 +457,10 @@ function renderSectionCards(cards) {
       }
 
       const arabicHtml = card.arabic ? `<div class="arabic">${escapeHtml(card.arabic)}</div>` : "";
-      const latinHtml = `<div class="latin">${showLatin.checked && card.latin ? escapeHtml(card.latin) : ""}</div>`;
+      const latinText = card.latin ? escapeHtml(card.latin) : "";
+      const shouldBlurLatin = Boolean(showLatin) && !showLatin.checked && isNonEmpty(card.latin);
+      const latinClassName = shouldBlurLatin ? "latin latin--blurred" : "latin";
+      const latinHtml = `<div class="${latinClassName}">${latinText}</div>`;
       const shouldShowMeaning = !showTranslation || showTranslation.checked;
       const meaningHtml = shouldShowMeaning && card.meaning ? `<div class="meaning">${escapeHtml(card.meaning)}</div>` : "";
       const extraHtml = card.extra ? `<div class="card-extra">${escapeHtml(card.extra)}</div>` : "";
