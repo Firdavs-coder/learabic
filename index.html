@@ -80,6 +80,30 @@
       <section class="content-panel">
         <section id="wordGrid" class="word-grid" aria-live="polite"></section>
       </section>
+
+      <aside class="right-panel">
+        <section class="quiz-panel" aria-labelledby="quizTitle">
+          <div class="quiz-header">
+            <div>
+              <p class="quiz-kicker">Quiz test</p>
+              <h2 id="quizTitle">Choose the Latin reading</h2>
+            </div>
+            <button id="quizShuffleBtn" class="btn quiz-refresh" type="button" aria-label="New question" title="New question">
+              <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M4 7h5l3 3H21" />
+                <path d="M4 17h5l3-3H21" />
+                <path d="M18 5l3 2-3 2" />
+                <path d="M18 15l3 2-3 2" />
+              </svg>
+            </button>
+          </div>
+
+          <div id="quizArabic" class="quiz-arabic" aria-live="polite"></div>
+          <div id="quizPrompt" class="quiz-prompt">Pick the matching Latin reading.</div>
+          <div id="quizOptions" class="quiz-options" role="listbox" aria-label="Latin reading options"></div>
+          <div id="quizFeedback" class="quiz-feedback" aria-live="polite"></div>
+        </section>
+      </aside>
     </div>
   </main>
 

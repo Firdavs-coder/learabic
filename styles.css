@@ -70,7 +70,7 @@ body::after {
 
 .layout {
     display: grid;
-    grid-template-columns: 320px minmax(0, 1fr);
+    grid-template-columns: minmax(280px, 320px) minmax(0, 1fr) minmax(280px, 320px);
     gap: 20px;
     align-items: start;
 }
@@ -82,6 +82,11 @@ body::after {
 
 .content-panel {
     min-height: 70vh;
+}
+
+.right-panel {
+    position: sticky;
+    top: 16px;
 }
 
 .top h1 {
@@ -392,9 +397,167 @@ body::after {
 .word-grid {
     margin-top: 0;
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(190px, 220px));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     justify-content: center;
     gap: 12px;
+}
+
+.quiz-panel {
+    padding: 16px;
+    border-radius: 14px;
+    background: color-mix(in srgb, var(--panel), transparent 8%);
+    border: 1px solid var(--border);
+    box-shadow: var(--shadow);
+    backdrop-filter: blur(2px);
+    display: grid;
+    gap: 12px;
+}
+
+.quiz-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.quiz-kicker {
+    margin: 0 0 4px;
+    color: var(--muted);
+    font-size: 0.78rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.quiz-header h2 {
+    margin: 0;
+    font-size: 1.05rem;
+}
+
+.quiz-refresh {
+    flex: 0 0 auto;
+    width: 44px;
+    height: 44px;
+    padding: 0;
+    justify-content: center;
+}
+
+.quiz-arabic {
+    direction: rtl;
+    text-align: center;
+    font-family: "Noto Naskh Arabic", serif;
+    font-size: clamp(2.2rem, 5vw, 3.4rem);
+    line-height: 1.35;
+    color: var(--text);
+    padding: 10px 12px;
+    border-radius: 14px;
+    background: var(--panel-soft);
+    border: 1px solid var(--border);
+}
+
+.quiz-prompt {
+    color: var(--muted);
+    line-height: 1.5;
+    font-size: 0.95rem;
+}
+
+.quiz-options {
+    display: grid;
+    gap: 10px;
+}
+
+.quiz-option {
+    width: 100%;
+    border: 1px solid var(--border);
+    background: var(--btn-bg);
+    color: var(--text);
+    border-radius: 12px;
+    padding: 12px 14px;
+    font: inherit;
+    cursor: pointer;
+    text-align: center;
+    font-weight: 600;
+    transition: transform 0.15s ease, box-shadow 0.2s ease, border-color 0.2s ease, background 0.2s ease;
+}
+
+.quiz-option:hover,
+.quiz-option:focus-visible {
+    transform: translateY(-1px);
+    border-color: var(--btn-hover-border);
+    box-shadow: 0 0 0 2px var(--btn-hover-ring);
+    outline: none;
+}
+
+.quiz-option:disabled {
+    cursor: default;
+    transform: none;
+    box-shadow: none;
+    opacity: 0.95;
+}
+
+.quiz-option--correct {
+    background: color-mix(in srgb, #e4f4e9, white 18%);
+    border-color: #98c7a5;
+}
+
+.quiz-option--wrong {
+    background: color-mix(in srgb, #f9e7e4, white 18%);
+    border-color: #d7a29a;
+}
+
+.quiz-feedback {
+    min-height: 1.4rem;
+    color: var(--muted);
+    font-size: 0.92rem;
+}
+
+.quiz-feedback--success {
+    color: #2f7b44;
+}
+
+.quiz-feedback--error {
+    color: #a24b3f;
+}
+
+@media (max-width: 1280px) {
+    .layout {
+        grid-template-columns: minmax(260px, 300px) minmax(0, 1fr);
+    }
+
+    .right-panel {
+        grid-column: 1 / -1;
+        position: static;
+    }
+
+    .quiz-panel {
+        max-width: 720px;
+        margin: 0 auto;
+    }
+}
+
+@media (max-width: 1040px) {
+    .layout {
+        grid-template-columns: 1fr;
+    }
+
+    .left-panel,
+    .right-panel {
+        position: static;
+    }
+
+    .quiz-panel {
+        max-width: none;
+    }
+
+    .word-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 1180px) {
+    .word-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
 }
 
 .word-card {
@@ -664,9 +827,29 @@ body::after {
         min-height: auto;
     }
 
+    .right-panel {
+        position: static;
+    }
+
     .word-grid {
         grid-template-columns: repeat(2, minmax(0, 1fr));
         gap: 10px;
+    }
+
+    .quiz-panel {
+        padding: 12px;
+    }
+
+    .quiz-header {
+        align-items: center;
+    }
+
+    .quiz-header h2 {
+        font-size: 1rem;
+    }
+
+    .quiz-arabic {
+        font-size: clamp(2rem, 9vw, 2.8rem);
     }
 
     .word-card {

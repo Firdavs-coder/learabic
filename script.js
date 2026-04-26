@@ -9,6 +9,11 @@ const lessonInfo = document.getElementById("lessonInfo");
 const prevBtn = document.getElementById("prevBtn");
 const nextBtn = document.getElementById("nextBtn");
 const shuffleBtn = document.getElementById("shuffleBtn");
+const quizShuffleBtn = document.getElementById("quizShuffleBtn");
+const quizArabic = document.getElementById("quizArabic");
+const quizPrompt = document.getElementById("quizPrompt");
+const quizOptions = document.getElementById("quizOptions");
+const quizFeedback = document.getElementById("quizFeedback");
 const showLatin = document.getElementById("showLatin");
 const showTranslation = document.getElementById("showTranslation");
 const arabicSize = document.getElementById("arabicSize");
@@ -26,6 +31,8 @@ const modalMeaning = document.getElementById("modalMeaning");
 
 let currentLesson = 0;
 let displayedItems = [];
+let currentQuizQuestion = null;
+let quizAdvanceTimer = null;
 let arabicVoice = null;
 let fallbackAudio = null;
 let activeModalCard = null;
@@ -519,6 +526,223 @@ function shuffleArray(items) {
   return arr;
 }
 
+function normalizeQuizLatin(value) {
+  return String(value || "").trim().toLowerCase();
+}
+
+function compactQuizLatin(value) {
+  return normalizeQuizLatin(value).replace(/[^a-z0-9]/g, "");
+}
+
+function sharedPrefixLength(first, second) {
+  const limit = Math.min(first.length, second.length);
+  let count = 0;
+
+  for (let index = 0; index < limit; index += 1) {
+    if (first[index] !== second[index]) {
+      break;
+    }
+
+    count += 1;
+  }
+
+  return count;
+}
+
+function sharedSuffixLength(first, second) {
+  const reversedFirst = [...first].reverse().join("");
+  const reversedSecond = [...second].reverse().join("");
+  return sharedPrefixLength(reversedFirst, reversedSecond);
+}
+
+function levenshteinDistance(first, second) {
+  if (first === second) {
+    return 0;
+  }
+
+  if (!first.length) {
+    return second.length;
+  }
+
+  if (!second.length) {
+    return first.length;
+  }
+
+  const matrix = Array.from({ length: first.length + 1 }, () => Array(second.length + 1).fill(0));
+
+  for (let row = 0; row <= first.length; row += 1) {
+    matrix[row][0] = row;
+  }
+
+  for (let column = 0; column <= second.length; column += 1) {
+    matrix[0][column] = column;
+  }
+
+  for (let row = 1; row <= first.length; row += 1) {
+    for (let column = 1; column <= second.length; column += 1) {
+      const cost = first[row - 1] === second[column - 1] ? 0 : 1;
+      matrix[row][column] = Math.min(
+        matrix[row - 1][column] + 1,
+        matrix[row][column - 1] + 1,
+        matrix[row - 1][column - 1] + cost
+      );
+    }
+  }
+
+  return matrix[first.length][second.length];
+}
+
+function similarityScore(answerLatin, candidateLatin) {
+  const answer = compactQuizLatin(answerLatin);
+  const candidate = compactQuizLatin(candidateLatin);
+
+  if (!answer || !candidate || answer === candidate) {
+    return Number.NEGATIVE_INFINITY;
+  }
+
+  const prefix = sharedPrefixLength(answer, candidate);
+  const suffix = sharedSuffixLength(answer, candidate);
+  const lengthGap = Math.abs(answer.length - candidate.length);
+  const distance = levenshteinDistance(answer, candidate);
+  const firstMatch = answer[0] === candidate[0] ? 1 : 0;
+  const lastMatch = answer[answer.length - 1] === candidate[candidate.length - 1] ? 1 : 0;
+
+  return (
+    prefix * 4 +
+    suffix * 3 +
+    firstMatch * 4 +
+    lastMatch * 3 +
+    Math.max(0, 6 - lengthGap * 2) +
+    Math.max(0, 8 - distance * 2)
+  );
+}
+
+function clearQuizAdvanceTimer() {
+  if (quizAdvanceTimer) {
+    window.clearTimeout(quizAdvanceTimer);
+    quizAdvanceTimer = null;
+  }
+}
+
+function getQuizItems(section) {
+  const seen = new Set();
+
+  return collectSectionCards(section)
+    .filter((card) => isNonEmpty(card.arabic) && isNonEmpty(card.latin))
+    .filter((card) => {
+      const key = `${normalizeQuizLatin(card.arabic)}|${normalizeQuizLatin(card.latin)}`;
+      if (seen.has(key)) {
+        return false;
+      }
+
+      seen.add(key);
+      return true;
+    });
+}
+
+function buildQuizQuestion(section) {
+  const quizItems = getQuizItems(section);
+  if (quizItems.length === 0) {
+    return null;
+  }
+
+  const answerItem = quizItems[Math.floor(Math.random() * quizItems.length)];
+  const desiredOptionCount = quizItems.length >= 4 ? 4 : quizItems.length >= 3 ? 3 : quizItems.length;
+  const answerKey = normalizeQuizLatin(answerItem.latin);
+  const distractors = quizItems
+    .filter((item) => normalizeQuizLatin(item.latin) !== answerKey)
+    .map((item) => ({
+      item,
+      score: similarityScore(answerItem.latin, item.latin),
+    }))
+    .sort((first, second) => second.score - first.score);
+
+  const poolSize = Math.min(Math.max(6, desiredOptionCount + 2), distractors.length);
+  const closeCandidates = shuffleArray(distractors.slice(0, poolSize).map((entry) => entry.item));
+  const selectedDistractors = closeCandidates.slice(0, Math.max(0, desiredOptionCount - 1));
+  const options = shuffleArray([answerItem, ...selectedDistractors]);
+
+  return {
+    prompt: answerItem.arabic,
+    answer: answerItem,
+    options,
+    correctIndex: options.findIndex((option) => normalizeQuizLatin(option.latin) === answerKey),
+  };
+}
+
+function clearQuizFeedback(message = "") {
+  if (quizFeedback) {
+    quizFeedback.textContent = message;
+    quizFeedback.classList.remove("quiz-feedback--success", "quiz-feedback--error");
+  }
+}
+
+function renderQuizQuestion(section) {
+  if (!quizArabic || !quizOptions || !quizPrompt || !quizFeedback) {
+    return;
+  }
+
+  clearQuizAdvanceTimer();
+  currentQuizQuestion = buildQuizQuestion(section);
+
+  if (!currentQuizQuestion) {
+    quizArabic.textContent = "";
+    quizPrompt.textContent = "No quiz words are available for this lesson.";
+    quizOptions.innerHTML = "";
+    clearQuizFeedback("");
+    return;
+  }
+
+  quizArabic.textContent = currentQuizQuestion.prompt || "";
+  quizPrompt.textContent = `Pick the correct Latin reading for ${currentQuizQuestion.options.length} shuffled choices.`;
+  clearQuizFeedback("Select an answer.");
+
+  quizOptions.innerHTML = currentQuizQuestion.options
+    .map(
+      (option, index) => `
+        <button class="quiz-option" type="button" data-quiz-index="${index}" aria-label="Option ${index + 1}">
+          ${escapeHtml(option.latin || "")}
+        </button>
+      `
+    )
+    .join("");
+}
+
+function revealQuizAnswer(selectedIndex) {
+  if (!currentQuizQuestion || !quizOptions) {
+    return;
+  }
+
+  clearQuizAdvanceTimer();
+
+  const buttons = Array.from(quizOptions.querySelectorAll(".quiz-option"));
+  buttons.forEach((button, index) => {
+    const isCorrect = index === currentQuizQuestion.correctIndex;
+    const isSelected = index === selectedIndex;
+    button.classList.toggle("quiz-option--correct", isCorrect);
+    button.classList.toggle("quiz-option--wrong", isSelected && !isCorrect);
+    button.disabled = true;
+  });
+
+  if (quizFeedback) {
+    const correctOption = currentQuizQuestion.options[currentQuizQuestion.correctIndex];
+    quizFeedback.textContent = selectedIndex === currentQuizQuestion.correctIndex
+      ? `Correct: ${correctOption.latin}`
+      : `Try again next question. Correct answer: ${correctOption.latin}`;
+    quizFeedback.classList.toggle("quiz-feedback--success", selectedIndex === currentQuizQuestion.correctIndex);
+    quizFeedback.classList.toggle("quiz-feedback--error", selectedIndex !== currentQuizQuestion.correctIndex);
+  }
+
+  quizAdvanceTimer = window.setTimeout(() => {
+    refreshQuizForCurrentLesson();
+  }, 2000);
+}
+
+function refreshQuizForCurrentLesson() {
+  const section = lessons[currentLesson];
+  renderQuizQuestion(section);
+}
+
 function canSpeakArabic() {
   return typeof window !== "undefined" && "speechSynthesis" in window && typeof SpeechSynthesisUtterance !== "undefined";
 }
@@ -791,12 +1015,18 @@ function populateLessons() {
     .join("");
 }
 
-function renderLesson(index, customWords = null) {
+function renderLesson(index, customWords = null, options = {}) {
   const section = lessons[index];
   if (!section) {
     wordGrid.innerHTML = "";
     lessonSelectValue.textContent = "Select lesson";
     updateNotesTooltip(null);
+    if (quizArabic && quizPrompt && quizOptions && quizFeedback) {
+      quizArabic.textContent = "";
+      quizPrompt.textContent = "Choose a lesson to start the quiz.";
+      quizOptions.innerHTML = "";
+      clearQuizFeedback("");
+    }
     return;
   }
 
@@ -808,6 +1038,10 @@ function renderLesson(index, customWords = null) {
   updateNotesTooltip(section);
   renderSectionCards(cards);
   updateSelectLabel(index);
+
+  if (!options.preserveQuiz) {
+    renderQuizQuestion(section);
+  }
 }
 
 function openWordModal(card) {
@@ -972,19 +1206,19 @@ shuffleBtn.addEventListener("click", () => {
 
   const currentSection = lessons[currentLesson];
   const cards = collectSectionCards(currentSection);
-  renderLesson(currentLesson, shuffleArray(cards));
+  renderLesson(currentLesson, shuffleArray(cards), { preserveQuiz: true });
 });
 
 showLatin.addEventListener("change", () => {
   localStorage.setItem(SHOW_LATIN_STORAGE_KEY, String(showLatin.checked));
-  renderLesson(currentLesson);
+  renderLesson(currentLesson, null, { preserveQuiz: true });
   updateModalCardText(activeModalCard);
 });
 
 if (showTranslation) {
   showTranslation.addEventListener("change", () => {
     localStorage.setItem(SHOW_TRANSLATION_STORAGE_KEY, String(showTranslation.checked));
-    renderLesson(currentLesson);
+    renderLesson(currentLesson, null, { preserveQuiz: true });
     updateModalCardText(activeModalCard);
   });
 }
@@ -1052,3 +1286,25 @@ document.addEventListener("keydown", (e) => {
     closeWordModal();
   }
 });
+
+if (quizShuffleBtn) {
+  quizShuffleBtn.addEventListener("click", () => {
+    refreshQuizForCurrentLesson();
+  });
+}
+
+if (quizOptions) {
+  quizOptions.addEventListener("click", (e) => {
+    const optionButton = e.target.closest(".quiz-option");
+    if (!optionButton || !currentQuizQuestion) {
+      return;
+    }
+
+    const selectedIndex = Number(optionButton.dataset.quizIndex);
+    if (Number.isNaN(selectedIndex)) {
+      return;
+    }
+
+    revealQuizAnswer(selectedIndex);
+  });
+}
